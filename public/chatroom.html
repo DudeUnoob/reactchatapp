@@ -32,35 +32,34 @@
       .then(res => res.json())
       .then(data => user = data.user)
       var socket = io();
+      let form = document.getElementById("form");
+      let input = document.getElementById("input");
+      let messages = document.getElementById("messages")
+      
 
-      var messages = document.getElementById('messages');
-      var form = document.getElementById('form');
-      var input = document.getElementById('input');
-
-      form.addEventListener('submit', function(e) {
+      form.addEventListener('submit', (e) => {
         e.preventDefault();
         if (input.value) {
-          socket.emit('chat message', input.value);
+          socket.emit('chat message', input.value, user);
           input.value = '';
         }
-      });
+      })
 
-      socket.on('chat message', function(msg) {
+      socket.on('chat message', function(msg, usert) {
         var item = document.createElement('li');
-        item.textContent = user + ": " + msg;
+        item.textContent = usert + ": " + msg;
         messages.appendChild(item);
         window.scrollTo(0, document.body.scrollHeight);
-      });
+      })
 
       socket.on('history', (data) => {
         let item = document.createElement('li');
 
         data.map((elm) => {
           var item = document.createElement('li');
-          item.textContent = user + ": " + elm
-            return messages.appendChild(item)
+          item.textContent = elm;
+          return messages.appendChild(item)
         })
-
       })
 
       

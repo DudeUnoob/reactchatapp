@@ -30,6 +30,7 @@ function isLoggedIn (req, res, next) {
     req.user ? next() : res.sendStatus(400)
 }
 
+
 function checkLogIn(req, res, next) {
     if(req.user){
 
@@ -37,6 +38,10 @@ function checkLogIn(req, res, next) {
     } else {
         res.send('<a href=/login>Login Here</a><br /><a href=/signup>Sign Up</a>')
     }
+}
+
+function okLogin(req, res, next) {
+    console.log(req.user)
 }
 
 const users = db.table('users')
@@ -80,9 +85,10 @@ app.get('/who', (req, res) => {
 
 let history = []
 io.on('connection', async(socket) => {
-    socket.on('chat message', msg => {
-      io.emit('chat message', msg);
-      db.push('history', msg)
+    socket.on('chat message', (msg, user) => {
+      io.emit('chat message', msg, user);
+      console.log(user + ': ' +msg)
+      db.push('history', user + ': ' + msg)
     });
     socket.emit('history', await db.get("history"))
 
