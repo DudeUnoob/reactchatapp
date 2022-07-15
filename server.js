@@ -3,15 +3,21 @@ const app = express();
 const passport = require("passport")
 const bodyParser = require('body-parser')
 const http = require('http');
+require("dotenv").config();
+const jwtAuth = require('./config/jwtauth');
 const server = http.createServer(app);
 const session = require('express-session')
 const path = require("path");
 const { isObject } = require('util');
+const fs = require('fs')
 require('./config/auth');
 const { Server } = require('socket.io')
 const { QuickDB } = require('quick.db');
+const jwt = require("jsonwebtoken");
 const db = new QuickDB();
-const io = new Server(server)
+const io = new Server(server);
+const axios = require('axios');
+const { createPrivateKey } = require('crypto');
 
 express.static(path.join(__dirname, '/public'));
 app.use(bodyParser.json())
@@ -34,15 +40,15 @@ function isLoggedIn (req, res, next) {
 function checkLogIn(req, res, next) {
     if(req.user){
 
-        res.send('<a href=/logout>Logout</a>')
+        return res.send('<a href=/logout>Logout</a>')
     } else {
-        res.send('<a href=/login>Login Here</a><br /><a href=/signup>Sign Up</a>')
+       return  res.send('<a href=http://localhost:3000/login>Login Here</a><br /><a href=/signup>Sign Up</a>')
     }
 }
 
-function okLogin(req, res, next) {
-    console.log(req.user)
-}
+// function okLogin(req, res, next) {
+//     console.log(req.user)
+// }
 
 const users = db.table('users')
 
@@ -51,38 +57,8 @@ app.get('/', checkLogIn, async(req, res) => {
     
 })
 
-app.post('/signup', async(req, res) => {
 
-    if(await users.has(req.body.username) === true){
-        res.status(400).send("Sorry, a user with this username already exists")
-    } else {
-    await users.add(req.body.username, req.body.password)
-    res.send("successfully signed up")
-
-    }
-
-})
-
-app.get('/signup', (req, res) => {
-    res.sendFile('signup.html', { root: path.join(__dirname, './public')})
-})
-app.get('/login',  (req, res) => {
-    res.sendFile( 'index.html',{ root: path.join(__dirname, './public') });
-})
-
-app.post('/login',  passport.authenticate('local', { successRedirect: '/chatroom', failureRedirect:"/" }), (req, res) => {
-    res.send(req.user)
-    
-})
-
-app.get('/worked', (req, res) => {
-    res.send("This worked lmao")
-})
-
-app.get('/who', (req, res) => {
-    res.send({user: req.user})
-})
-
+let preUser;
 let history = []
 io.on('connection', async(socket) => {
     socket.on('chat message', (msg, user) => {
@@ -96,16 +72,70 @@ io.on('connection', async(socket) => {
 
 
   
-app.get('/chatroom', isLoggedIn, (req, res) => {
+app.get('/chatroom', jwtAuth, (req, res) => {
     res.sendFile('chatroom.html', { root: path.join(__dirname, './public')})
 })
 
 app.get("/logout", (req, res) => {
-    req.logout(function(err) {
-        if (err) { return next(err); }
-        res.redirect('/');
-      });
+    req.session.destroy()
+    res.redirect('/')
 } )
+
+app.get('/signup', (req, res) => {
+    res.sendFile('signup.html', { root: path.join(__dirname, './public')})
+})
+
+
+app.post('/signup', async(req, res) => {
+
+    if(await users.has(req.body.username) === true){
+        res.status(400).send("Sorry, a user with this username already exists")
+    } else {
+    await users.add(req.body.username, req.body.password)
+    res.send("successfully signed up")
+
+    }
+
+})
+
+app.get('/login', async(req, res) => {
+    res.sendFile('login.html',{ root: path.join(__dirname, './public') });
+})
+
+app.post('/login', async(req, res) => {
+
+   
+        let username = req.body.username
+        let password = req.body.password
+        let checkUser = await users.get(username)
+
+       if(checkUser === "0" + null){
+        return res.status(400).send("no log in for user")
+       } 
+       if(checkUser === "0" + password){
+       
+        let test = req.body.username
+
+        const token = jwt.sign(
+            {user: test},
+            process.env.JWT_KEY,
+            {
+                expiresIn: "1h"
+            }
+        )
+    
+        req.session.token = token
+        req.session.userid = test
+        return res.status(200).send("successfully logged in")
+       }
+    
+   
+})
+
+
+app.get('/who', async(req, res) => {
+    res.send({ user: req.session.userid })
+})
 
 server.listen(3000, () => {
     console.log("listening")
